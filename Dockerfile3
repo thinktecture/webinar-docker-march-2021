@@ -1,0 +1,17 @@
+# Stage 3: use runtime deps image instead of runtime
+FROM mcr.microsoft.com/dotnet/sdk:5.0-alpine AS build
+WORKDIR /src
+COPY ./src/Webinars.Docker.Api.csproj ./
+RUN dotnet restore "./Webinars.Docker.Api.csproj" --runtime alpine-x64
+COPY ./src .
+# self-contained is optionally
+# it results in one big layer. depends on network topology and latency to registry. 
+# sometimes it makes more sense to stick with runtime image later than using runtime deps only
+RUN dotnet publish "Webinars.Docker.Api.csproj" -c Release --no-restore --runtime alpine-x64 --self-contained true -o /app/publish /p:PublishTrimmed=true
+
+FROM mcr.microsoft.com/dotnet/runtime-deps:5.0-alpine
+EXPOSE 80
+EXPOSE 443
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["./Webinars.Docker.Api"]
